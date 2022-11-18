@@ -6,12 +6,13 @@ import torch
 import torch.nn as nn
 from torch.optim.lr_scheduler import LambdaLR
 
+from reinforce import REINFORCE
 from utils import Actor, Critic, ReplayBuffer, train
 
 import warnings
 warnings.filterwarnings('ignore')
 
-class A2C:
+class A2C(REINFORCE):
 
     def __init__(
         self,
