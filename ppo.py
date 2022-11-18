@@ -18,29 +18,26 @@ class PPO(A2C):
 
     def __init__(
         self,
-        state_dim,
-        action_dim,
-        gamma: float,
-        gae_lambda: float,
-        hidden_sizes: Sequence[int],
-        activation_fn: nn.modules.activation,
-        lr: float,
-        n_epochs: int,
-        collect_per_epoch: int,
-        update_per_collect: int,
-        batch_size: int,
-        norm_advantages: bool,
-        recompute_advantages: bool,
-        schedule_lr: bool,
-        clip_eps: float,
-        vf_coef: float,
-        ent_coef: float,
-        max_grad_norm: float,
-        device: str
+        state_dim: int,
+        action_dim: int,
+        gamma: float = 0.99,
+        gae_lambda: float = 0.95,
+        hidden_sizes: Sequence[int] = [64, 64],
+        activation_fn: nn.modules.activation = nn.Tanh,
+        lr: float = 1e-3,
+        n_epochs: int = None,
+        collect_per_epoch: int = None,
+        update_per_collect: int = 10,
+        batch_size: int = 64,
+        norm_advantages: bool = True,
+        recompute_advantages: bool = True,
+        schedule_lr: bool = False,
+        clip_eps: float = 0.2,
+        vf_coef: float = 0.5,
+        ent_coef: float = 1e-2,
+        max_grad_norm: float = 0.5,
+        device: str = 'cpu'
     ):
-
-        self.gamma = gamma
-        self.gae_lambda = gae_lambda
 
         self.actor = Actor(
             state_dim,
@@ -69,6 +66,8 @@ class PPO(A2C):
                 self.optimizer, lr_lambda = lambda n_collect: 1 - n_collect / n_collects
             )
 
+        self.gamma = gamma
+        self.gae_lambda = gae_lambda
         self.update_per_collect = update_per_collect
         self.batch_size = batch_size
         self.norm_advantages = norm_advantages
@@ -82,12 +81,12 @@ class PPO(A2C):
 
     def update(self, buffer):
 
-        states, actions, rewards, next_states, terminated, truncated = buffer.to_tensor(device = args.device)
+        states, actions, rewards, next_states, terminated, truncated = buffer.to_tensor(device = self.device)
 
         actions = torch.atanh(actions)
 
         with torch.no_grad():
-            dist = self.actor.compute_dist(states)
+            dist = self.compute_dist(states)
         old_log_prob = dist.log_prob(actions).unsqueeze(-1)
 
         for update in range(self.update_per_collect):
@@ -114,7 +113,7 @@ class PPO(A2C):
                 batch_lambda_returns = lambda_returns[indices]
 
                 # compute actor loss
-                dist = self.actor.compute_dist(batch_states)
+                dist = self.compute_dist(batch_states)
                 log_prob = dist.log_prob(batch_actions).unsqueeze(-1)
 
                 ratio = (log_prob - batch_old_log_prob).exp()
@@ -160,6 +159,7 @@ if __name__ == '__main__':
     parser.add_argument('--step-per-collect', type = int, default = 2048)
     parser.add_argument('--update-per-collect', type = int, default = 10)
     parser.add_argument('--batch-size', type = int, default = 64)
+    parser.add_argument('--n-test-episodes', type = int, default = 10)
 
     parser.add_argument('--norm-states', type = bool, default = True)
     parser.add_argument('--scale-rewards', type = bool, default = True)
@@ -171,7 +171,7 @@ if __name__ == '__main__':
     parser.add_argument('--ent-coef', type = float, default = 1e-2)
     parser.add_argument('--max-grad-norm', type = float, default = 0.5)
 
-    parser.add_argument('--path', type = str, default = 'log/ppo_halfcheetah_3.npz')
+    parser.add_argument('--path', type = str, default = 'log/ppo_halfcheetah_2.npz')
     parser.add_argument('--device', type = str, default = 'cuda' if torch.cuda.is_available() else 'cpu')
 
     args = parser.parse_args()
@@ -214,6 +214,7 @@ if __name__ == '__main__':
         n_epochs = args.n_epochs,
         collect_per_epoch = args.collect_per_epoch,
         step_per_collect = args.step_per_collect,
+        n_test_episodes = args.n_test_episodes,
         norm_states = args.norm_states,
         scale_rewards = args.scale_rewards,
         path = args.path
