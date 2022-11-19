@@ -153,7 +153,7 @@ if __name__ == '__main__':
     parser.add_argument('--n-start-steps', type = int, default = 10000)
     parser.add_argument('--n-test-episodes', type = int, default = 10)
 
-    parser.add_argument('--path', type = str, default = 'log/sac_halfcheetah_1.npz')
+    parser.add_argument('--path', type = str, default = 'log/sac_halfcheetah_2.npz')
     parser.add_argument('--device', type = str, default = 'cuda' if torch.cuda.is_available() else 'cpu')
 
     args = parser.parse_args()

@@ -5,16 +5,16 @@ import gym
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.distributions import Normal, Independent
 from torch.optim.lr_scheduler import LambdaLR
 
-from a2c import A2C
 from utils import ReplayBuffer, Actor, Critic, train
 
 import warnings
 warnings.filterwarnings('ignore')
 
 
-class PPO(A2C):
+class PPO:
 
     def __init__(
         self,
@@ -140,6 +140,43 @@ class PPO(A2C):
 
         if self.schedule_lr:
             self.scheduler.step()
+
+    def compute_dist(self, states: torch.tensor):
+
+        hidden_state = self.actor.net(states)
+        mu = self.actor.mu(hidden_state)
+        log_sigma = self.actor.sigma.expand_as(mu)
+        sigma = torch.clamp(log_sigma, -20, 2).exp()
+        dist = Independent(Normal(mu, sigma), 1)
+
+        return dist
+
+    def compute_lambda_returns_and_advantages(
+        self,
+        states: torch.tensor,
+        rewards: torch.tensor,
+        next_states: torch.tensor,
+        terminated: torch.tensor,
+        truncated: torch.tensor,
+        buffer_size: int
+    ):
+
+        dones = torch.logical_or(terminated, truncated)
+
+        with torch.no_grad():
+            values = self.critic(states)
+            next_values = self.critic(next_states)
+
+        advantage = 0
+        advantages = torch.zeros((buffer_size, 1)).to(self.device)
+        deltas = rewards + self.gamma * torch.logical_not(terminated) * next_values - values
+        for n in range(buffer_size - 1, -1, -1):
+            advantage = torch.logical_not(dones[n]) * self.gamma * self.gae_lambda * advantage + deltas[n]
+            advantages[n] = advantage
+
+        lambda_returns = advantages + values
+
+        return lambda_returns, advantages
 
 
 if __name__ == '__main__':

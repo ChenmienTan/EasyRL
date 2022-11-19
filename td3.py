@@ -201,6 +201,6 @@ if __name__ == '__main__':
         n_epochs = args.n_epochs,
         collect_per_epoch = args.collect_per_epoch,
         step_per_collect = args.step_per_collect,
-        test_episodes = args.n_test_episodes,
+        n_test_episodes = args.n_test_episodes,
         path = args.path
     )
